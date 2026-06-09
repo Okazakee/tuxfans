@@ -3,8 +3,8 @@ class Tuxfans < Formula
   homepage "https://github.com/Okazakee/tuxfans"
   license "MIT"
 
-  url "https://github.com/Okazakee/tuxfans/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "1db27a2ad44f1517f3c30ef997bd9504b6763c833962f3b4739e0c13f6b9745d"
+  url "https://github.com/Okazakee/tuxfans/archive/refs/tags/v0.3.0.tar.gz"
+  sha256 "bfaa4adcf32b18628b7055123b0236c81904da03de6f1a036294c805bc3fa4fc"
 
   depends_on "rust" => :build
 
