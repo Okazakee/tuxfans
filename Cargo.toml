@@ -5,6 +5,10 @@ edition = "2021"
 description = "Fan curve controller for TUXEDO laptops"
 license = "MIT"
 repository = "https://github.com/Okazakee/tuxfans"
+homepage = "https://github.com/Okazakee/tuxfans"
+authors = ["Okazakee <okazakee@proton.me>"]
+keywords = ["tuxedo", "fan", "laptop", "ec", "hardware"]
+categories = ["hardware-support", "command-line-utilities"]
 
 [profile.release]
 lto = true

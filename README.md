@@ -1,5 +1,8 @@
 # tuxfans
 
+[![Crates.io](https://img.shields.io/crates/v/tuxfans)](https://crates.io/crates/tuxfans)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Fan curve controller for TUXEDO laptops.
 
 Talks directly to the embedded controller via `/dev/tuxedo_io`. No TCC required.
@@ -7,7 +10,16 @@ Talks directly to the embedded controller via `/dev/tuxedo_io`. No TCC required.
 ## Quick start
 
 ```bash
-# Build
+# Install via cargo
+cargo install tuxfans
+
+# Homebrew (via personal tap)
+brew install okazakee/tap/tuxfans
+
+# Arch Linux (AUR)
+yay -S tuxfans
+
+# Or build from source
 git clone https://github.com/Okazakee/tuxfans
 cd tuxfans
 cargo build --release
@@ -15,6 +27,7 @@ sudo cp target/release/tuxfans /usr/local/bin/
 
 # First run auto-fixes device permissions if needed
 tuxfans status
+```
 
 # Apply a built-in EC profile (auto-fixes permissions on every invocation)
 tuxfans profile quiet

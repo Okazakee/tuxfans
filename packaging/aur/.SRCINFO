@@ -1,0 +1,14 @@
+pkgbase = tuxfans
+	pkgdesc = Fan curve controller for TUXEDO laptops
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/Okazakee/tuxfans
+	install =
+	arch = x86_64
+	license = MIT
+	makedepends = cargo
+	depends =
+	source = tuxfans-0.1.0.tar.gz::https://github.com/Okazakee/tuxfans/archive/v0.1.0.tar.gz
+	sha256sums = UNCOMMITTED
+
+pkgname = tuxfans
