@@ -1,0 +1,33 @@
+[package]
+name = "tuxfans"
+version = "0.1.0"
+edition = "2021"
+description = "Fan curve controller for TUXEDO laptops"
+license = "MIT"
+repository = "https://github.com/Okazakee/tuxfans"
+
+[profile.release]
+lto = true
+strip = true
+
+[lib]
+name = "tuxfans_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tuxfans"
+path = "src/main.rs"
+
+[features]
+gui = ["gtk4", "libadwaita", "gdk4", "gio", "glib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+dirs = "6"
+libc = "0.2"
+gtk4 = { version = "0.9", features = ["v4_10"], optional = true }
+libadwaita = { version = "0.7", optional = true }
+gdk4 = { version = "0.9", optional = true }
+glib = { version = "0.20", optional = true }
+gio = { version = "0.20", optional = true }
