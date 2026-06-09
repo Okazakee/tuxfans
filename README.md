@@ -75,18 +75,24 @@ points = [
 
 | Profile | EC value | Behavior |
 |---|---|---|
-| `quiet` | `0x00` | Silent curve, EC automatic |
-| `performance` | `0x10` | Balanced curve, EC automatic |
-| `overboost` | `0xa0` | Aggressive curve, max cooling |
+| `quiet` | `0x01` | Silent curve, EC automatic |
+| `performance` | `0x02` | Balanced curve, EC automatic |
+| `overboost` | `0x03` | Aggressive curve, max cooling |
 
 ### Custom mode
 
 In `custom` mode the daemon reads CPU temperature from `k10temp` hwmon,
+applies a median filter (13 samples, median-of-7) to smooth transient spikes,
 interpolates fan speeds from the configured curve points, and writes them
-directly to the EC. GPU temperature is also available from `amdgpu` hwmon
-(optional, soft-fail if missing).
+directly to the EC via `W_UW_MODE_ENABLE`.
 
-Fan speed reads always return 0 on AMD Gen10 hardware (tuxedo_io driver
+Safety features hard-coded into the daemon loop:
+- **90°C+** → minimum 40% fan regardless of curve
+- **80°C+** → minimum 30% fan regardless of curve
+- **Falling speed limiter** — max 2% drop per tick when above 20%, preventing
+  harsh fan cutoffs
+
+Fan speed reads return 0 on AMD Gen10 hardware (tuxedo_io driver
 limitation). Writes and profile switching work correctly. See
 [ARCHITECTURE.md](ARCHITECTURE.md) for ioctl details.
 

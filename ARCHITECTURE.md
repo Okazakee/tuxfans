@@ -83,7 +83,7 @@ BIOS N.1.21A21, tuxedo-drivers-dkms).
 | `W_UW_FANSPEED` | `0x4008F010` | Set fan 1 speed, 0-100% |
 | `W_UW_FANSPEED2` | `0x4008F011` | Set fan 2 speed, 0-100% |
 | `W_UW_MODE` | `0x4008F012` | Write fan mode register |
-| `W_UW_MODE_ENABLE` | `0x4008F013` | Enable or disable manual mode |
+| `W_UW_MODE_ENABLE` | `0x4008F013` | Enable or disable manual mode (required before fan writes) |
 | `W_UW_FANAUTO` | `0x0000F014` | Revert to EC automatic fan control |
 | `W_UW_PERF_PROF` | `0x4008F018` | Set automatic EC fan profile |
 
@@ -115,9 +115,9 @@ through `W_UW_PERF_PROF`:
 
 | Profile | Value | Behavior |
 |---------|-------|----------|
-| `quiet` | `0x00` | Silent EC fan curve, lower max speeds |
-| `performance` | `0x10` | Balanced high-performance EC curve |
-| `overboost` | `0xa0` | Aggressive EC fan curve, max cooling |
+| `quiet` | `0x01` | Silent EC fan curve, lower max speeds |
+| `performance` | `0x02` | Balanced high-performance EC curve |
+| `overboost` | `0x03` | Aggressive EC fan curve, max cooling |
 
 These profiles affect the EC fan curve only while the EC is in automatic fan
 control. They do not define a custom userspace curve.
@@ -125,7 +125,10 @@ control. They do not define a custom userspace curve.
 ## Custom Fan Control
 
 Custom mode bypasses the automatic EC profile curve by writing fan speeds
-directly with `W_UW_FANSPEED` and `W_UW_FANSPEED2`.
+directly with `W_UW_FANSPEED` and `W_UW_FANSPEED2`. Manual mode must be
+enabled first via `W_UW_MODE_ENABLE` (value 1), otherwise the EC ignores
+the fan speed writes. On exit, call `W_UW_MODE_ENABLE` (value 0) followed
+by `W_UW_FANAUTO` to return control to the firmware.
 
 Observed behavior:
 
@@ -163,10 +166,13 @@ Available for future work:
    - Call `W_UW_PERF_PROF` with the selected profile value.
 
 2. **Custom mode**
+   - Call `W_UW_MODE_ENABLE` with value 1 to enable manual fan control.
    - Read CPU temperature from hwmon.
    - Interpolate fan speeds from configured curve points.
+   - Apply median filter, critical temperature safety net, and falling speed
+     limiter.
    - Write fan speeds directly to both fans every loop.
-   - Call `W_UW_FANAUTO` when stopping custom control.
+   - On exit: `W_UW_MODE_ENABLE` (0) then `W_UW_FANAUTO`.
 
 ## Permissions
 

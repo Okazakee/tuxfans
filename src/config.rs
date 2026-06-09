@@ -34,9 +34,9 @@ impl ControlMode {
 
     pub fn ec_profile_value(self) -> Option<u8> {
         match self {
-            Self::Quiet => Some(0x00),
-            Self::Performance => Some(0x10),
-            Self::Overboost => Some(0xa0),
+            Self::Quiet => Some(0x01),
+            Self::Performance => Some(0x02),
+            Self::Overboost => Some(0x03),
             Self::Custom => None,
         }
     }

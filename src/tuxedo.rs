@@ -6,6 +6,7 @@ const R_UW_FANSPEED2: u64 = 0x8004EF11;
 const R_UW_MODE_ENABLE: u64 = 0x8008EF15;
 const W_UW_FANSPEED: u64 = 0x4008F010;
 const W_UW_FANSPEED2: u64 = 0x4008F011;
+const W_UW_MODE_ENABLE: u64 = 0x4008F013;
 const W_UW_FANAUTO: u64 = 0x0000F014;
 const W_UW_PERF_PROF: u64 = 0x4008F018;
 
@@ -53,6 +54,10 @@ impl TuxedoIO {
             ));
         }
         Ok(())
+    }
+
+    pub fn set_mode_enable(&self, enable: bool) -> Result<(), String> {
+        self.write_ioctl(W_UW_MODE_ENABLE, if enable { 1 } else { 0 })
     }
 
     pub fn set_performance_profile(&self, profile: u8) -> Result<(), String> {
