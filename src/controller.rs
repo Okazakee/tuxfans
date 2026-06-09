@@ -126,19 +126,18 @@ fn filter_temp(buf: &mut VecDeque<f64>, temp: f64) -> f64 {
         buf.pop_front();
     }
 
-    if buf.len() < 3 {
-        return temp;
+    if buf.len() < FILTER_MEDIAN_KEEP {
+        let sum: f64 = buf.iter().sum();
+        return (sum / buf.len() as f64 * 10.0).round() / 10.0;
     }
 
     let mut sorted: Vec<f64> = buf.iter().copied().collect();
     sorted.sort_by(|a, b| a.total_cmp(b));
 
     let start = (sorted.len() - FILTER_MEDIAN_KEEP) / 2;
-    let end = start + FILTER_MEDIAN_KEEP;
-    let sum: f64 = sorted[start..end.min(sorted.len())].iter().sum();
-    let count = (end - start) as f64;
+    let sum: f64 = sorted[start..start + FILTER_MEDIAN_KEEP].iter().sum();
 
-    (sum / count * 10.0).round() / 10.0
+    (sum / FILTER_MEDIAN_KEEP as f64 * 10.0).round() / 10.0
 }
 
 fn limit_falling(target: u8, last: u8) -> u8 {
