@@ -7,6 +7,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   test:
@@ -22,6 +23,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Check version matches tag
+        run: |
+          CARGO_VER=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml)
+          TAG_VER="${GITHUB_REF_NAME#v}"
+          if [ "$CARGO_VER" != "$TAG_VER" ]; then
+            echo "Cargo.toml version ($CARGO_VER) doesn't match tag ($TAG_VER)"
+            exit 1
+          fi
       - run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
 
   homebrew:
@@ -29,20 +38,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Compute tarball hash
         id: hash
         run: |
           sha=$(curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz" | sha256sum | cut -d' ' -f1)
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-      - name: Clone homebrew tap
-        uses: actions/checkout@v4
-        with:
-          repository: Okazakee/homebrew-tuxfans
-          token: ${{ secrets.HOMEBREW_TOKEN }}
-          path: homebrew-tuxfans
       - name: Update formula
         run: |
-          cat > homebrew-tuxfans/Formula/tuxfans.rb << FORMULA
+          cat > packaging/homebrew/Formula/tuxfans.rb << FORMULA
           class Tuxfans < Formula
             desc "Fan curve controller for TUXEDO laptops"
             homepage "https://github.com/Okazakee/tuxfans"
@@ -64,11 +70,10 @@ jobs:
           FORMULA
       - name: Commit and push
         run: |
-          cd homebrew-tuxfans
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add .
-          git commit -m "tuxfans ${{ github.ref_name }}"
+          git add packaging/homebrew/Formula/tuxfans.rb
+          git diff --staged --quiet || git commit -m "Update Homebrew formula for ${{ github.ref_name }}"
           git push
 
   aur:
@@ -76,7 +81,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: archlinux:latest
-      options: --user root
     steps:
       - name: Install deps
         run: pacman -Syu --noconfirm git base-devel openssh
