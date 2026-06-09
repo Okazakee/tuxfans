@@ -112,10 +112,23 @@ jobs:
         run: |
           cd aur-pkg
           VERSION="${GITHUB_REF_NAME#v}"
+          SHA256="${{ steps.hash.outputs.sha256 }}"
           sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-          sed -i "s/^sha256sums=.*/sha256sums=('${{ steps.hash.outputs.sha256 }}')/" PKGBUILD
-          makepkg --printsrcinfo > .SRCINFO
+          sed -i "s/^sha256sums=.*/sha256sums=('$SHA256')/" PKGBUILD
+          printf '%s\n' \
+            "pkgbase = tuxfans" \
+            "	pkgdesc = Fan curve controller for TUXEDO laptops" \
+            "	pkgver = $VERSION" \
+            "	pkgrel = 1" \
+            "	url = https://github.com/Okazakee/tuxfans" \
+            "	arch = x86_64" \
+            "	license = MIT" \
+            "	makedepends = cargo" \
+            "	source = tuxfans-$VERSION.tar.gz::https://github.com/Okazakee/tuxfans/archive/v$VERSION.tar.gz" \
+            "	sha256sums = ('$SHA256')" \
+            "" \
+            "pkgname = tuxfans" > .SRCINFO
       - name: Commit and push
         shell: bash
         env:
