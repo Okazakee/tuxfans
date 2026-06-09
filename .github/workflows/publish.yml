@@ -94,7 +94,7 @@ jobs:
         run: |
           sha=$(curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz" | sha256sum | cut -d' ' -f1)
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-      - name: Setup SSH for AUR
+      - name: Setup SSH key
         shell: bash
         run: |
           mkdir -p ~/.ssh
@@ -102,19 +102,10 @@ jobs:
           printf '%s\n' "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
           ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
-          chmod 600 ~/.ssh/known_hosts
-          cat >> ~/.ssh/config << 'CONF'
-          Host aur.archlinux.org
-            IdentityFile ~/.ssh/aur
-            User aur
-            StrictHostKeyChecking accept-new
-          CONF
-          chmod 600 ~/.ssh/config
-      - name: Test SSH connection
-        shell: bash
-        run: ssh -T aur@aur.archlinux.org 2>&1 || true
       - name: Clone AUR package
         shell: bash
+        env:
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o StrictHostKeyChecking=accept-new
         run: git clone ssh://aur@aur.archlinux.org/tuxfans.git aur-pkg
       - name: Update PKGBUILD and .SRCINFO
         shell: bash
@@ -127,6 +118,8 @@ jobs:
           makepkg --printsrcinfo > .SRCINFO
       - name: Commit and push
         shell: bash
+        env:
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/aur -o StrictHostKeyChecking=accept-new
         run: |
           cd aur-pkg
           git config user.name "github-actions"
