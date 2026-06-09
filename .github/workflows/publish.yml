@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -40,7 +43,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       - name: Compute tarball hash
         id: hash
         run: |
@@ -74,7 +77,7 @@ jobs:
           git config user.email "actions@github.com"
           git add packaging/homebrew/Formula/tuxfans.rb
           git diff --staged --quiet || git commit -m "Update Homebrew formula for ${{ github.ref_name }}"
-          git push origin HEAD:main
+          git push
 
   aur:
     needs: test
@@ -95,15 +98,21 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
-          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 600 ~/.ssh/known_hosts
           cat >> ~/.ssh/config << 'CONF'
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
             User aur
             StrictHostKeyChecking accept-new
           CONF
+          chmod 600 ~/.ssh/config
+      - name: Test SSH connection
+        shell: bash
+        run: ssh -T aur@aur.archlinux.org 2>&1 || true
       - name: Clone AUR package
         shell: bash
         run: git clone ssh://aur@aur.archlinux.org/tuxfans.git aur-pkg
