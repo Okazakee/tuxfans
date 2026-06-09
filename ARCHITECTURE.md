@@ -147,10 +147,10 @@ for the custom curve can come from standard Linux hwmon.
 
 Currently used by `tuxfans`:
 
-| Sensor | hwmon name | File |
-|--------|------------|------|
-| CPU temperature | `k10temp` | `/sys/class/hwmon/hwmon*/temp1_input` |
-| GPU temperature | `amdgpu` | `/sys/class/hwmon/hwmon*/temp1_input` |
+| Sensor | hwmon names tried (in order) | File |
+|--------|------------------------------|------|
+| CPU temperature | `k10temp`, `coretemp`, `cpu_thermal`, `acpitz` | `/sys/class/hwmon/hwmon*/temp1_input` |
+| GPU temperature | `amdgpu`, `nvidia`, `i915`, `radeon` | `/sys/class/hwmon/hwmon*/temp1_input` |
 
 Available for future work:
 
@@ -178,6 +178,9 @@ Available for future work:
 ## Permissions
 
 `/dev/tuxedo_io` may be root-only depending on the installed driver and udev
-rules. `tuxfans` installs a udev rule granting access to the `plugdev` group
-(via `tuxfans onboard`). The onboard command uses `pkexec` to write the rule
-to `/etc/udev/rules.d/99-tuxfans.rules`.
+rules. `tuxfans` installs a udev rule granting world read/write access
+(`MODE="0666"`) via `tuxfans onboard`. The onboard command uses `sudo` (with
+`pkexec` fallback) to write the rule to `/etc/udev/rules.d/99-tuxfans.rules`.
+
+For non-systemd systems, the daemon can run as a detached background process
+managed via a PID file at `$XDG_RUNTIME_DIR/tuxfans.pid`.

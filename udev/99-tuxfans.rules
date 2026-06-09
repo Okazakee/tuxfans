@@ -1,1 +1,1 @@
-SUBSYSTEM=="tuxedo_io", KERNEL=="tuxedo_io", MODE="0660", GROUP="tuxfans"
+SUBSYSTEM=="tuxedo_io", KERNEL=="tuxedo_io", MODE="0666"

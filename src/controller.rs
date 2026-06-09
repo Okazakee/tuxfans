@@ -49,7 +49,7 @@ impl FanController {
                 gpu_temp: sensors.gpu_temp,
                 ec_auto: None,
                 device_error: Some(format!(
-                    "{}. Install tuxedo-drivers-dkms or fix /dev/tuxedo_io permissions.",
+                    "{}. Install the tuxedo drivers (tuxedo-drivers-dkms or equivalent for your distribution) or fix /dev/tuxedo_io permissions.",
                     e
                 )),
             },

@@ -7,6 +7,8 @@ use tuxfans_lib::controller::FanController;
 use tuxfans_lib::tuxedo::TuxedoIO;
 
 const UDEV_RULE_DST: &str = "/etc/udev/rules.d/99-tuxfans.rules";
+const UDEV_RULE: &str =
+    "SUBSYSTEM==\"tuxedo_io\", KERNEL==\"tuxedo_io\", MODE=\"0666\"";
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -46,53 +48,30 @@ fn main() {
 fn cmd_onboard() {
     println!("tuxfans setup\n");
 
-    // Check driver
     let has_dev = std::path::Path::new("/dev/tuxedo_io").exists();
     println!("  /dev/tuxedo_io  {}", check_mark(has_dev));
     if !has_dev {
-        println!("    → Install tuxedo-drivers-dkms and reboot.\n");
+        println!("    → Install the tuxedo drivers and reboot.\n");
         std::process::exit(1);
     }
 
-    // Check access
     let has_access = TuxedoIO::open().is_ok();
     println!("  read/write      {}", check_mark(has_access));
     if has_access {
         println!("    → Already accessible.\n");
     } else {
         println!("    → Installing udev rule for persistent access...");
-
-        let rule = r#"SUBSYSTEM=="tuxedo_io", KERNEL=="tuxedo_io", MODE="0660", GROUP="plugdev""#;
-        let result = Command::new("pkexec")
-            .args([
-                "sh",
-                "-c",
-                &format!(
-                    "echo '{}' > {} && udevadm control --reload-rules && udevadm trigger",
-                    rule, UDEV_RULE_DST
-                ),
-            ])
-            .status();
-
-        match result {
-            Ok(s) if s.success() => {
-                println!("    → udev rule installed. You may need to re-plug or reboot.");
-            }
-            _ => {
-                eprintln!("    → pkexec failed. Run manually: sudo chmod 666 /dev/tuxedo_io");
-            }
-        }
+        install_udev_rule();
         println!();
     }
 
-    // Check sensors
     let sensors = tuxfans_lib::sensors::read_all_sensors();
     println!(
-        "  CPU temp (k10temp)  {}",
+        "  CPU temp  {}",
         check_mark(sensors.cpu_temp.is_some())
     );
     println!(
-        "  GPU temp (amdgpu)   {}",
+        "  GPU temp  {}",
         check_mark(sensors.gpu_temp.is_some())
     );
     println!();
@@ -106,7 +85,7 @@ fn cmd_onboard() {
 
 fn ensure_device(exit_on_fail: bool) {
     if !std::path::Path::new("/dev/tuxedo_io").exists() {
-        eprintln!("Device not found: /dev/tuxedo_io\n→ Install tuxedo-drivers-dkms and reboot.");
+        eprintln!("Device not found: /dev/tuxedo_io\n→ Install the tuxedo drivers and reboot.");
         if exit_on_fail {
             std::process::exit(1);
         }
@@ -118,35 +97,42 @@ fn ensure_device(exit_on_fail: bool) {
     }
 
     eprintln!("Device permission denied. Installing udev rule...");
-
-    let rule = "SUBSYSTEM==\"tuxedo_io\", KERNEL==\"tuxedo_io\", MODE=\"0660\", GROUP=\"plugdev\"";
-    let result = Command::new("pkexec")
-        .args([
-            "sh",
-            "-c",
-            &format!(
-                "echo '{}' > {} && udevadm control --reload-rules && udevadm trigger",
-                rule, UDEV_RULE_DST
-            ),
-        ])
-        .status();
-
-    match result {
-        Ok(s) if s.success() => eprintln!("→ udev rule installed. Try again."),
-        _ => eprintln!("→ Failed. Run manually: sudo chmod 666 /dev/tuxedo_io"),
-    }
+    install_udev_rule();
 
     if exit_on_fail {
         std::process::exit(1);
     }
 }
 
-fn check_mark(ok: bool) -> &'static str {
-    if ok {
-        "✓"
+fn install_udev_rule() {
+    let script = format!(
+        "echo '{}' > {} && udevadm control --reload-rules && udevadm trigger",
+        UDEV_RULE, UDEV_RULE_DST
+    );
+
+    let success = run_privileged(&script);
+
+    if success {
+        eprintln!("→ udev rule installed. You may need to re-plug or reboot.");
     } else {
-        "✗"
+        eprintln!("→ Privilege escalation failed. Run manually: sudo chmod 666 /dev/tuxedo_io");
     }
+}
+
+fn run_privileged(script: &str) -> bool {
+    for cmd in &["sudo", "pkexec"] {
+        match Command::new(cmd).args(["sh", "-c", script]).status() {
+            Ok(s) if s.success() => return true,
+            Ok(_) => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+            Err(_) => continue,
+        }
+    }
+    false
+}
+
+fn check_mark(ok: bool) -> &'static str {
+    if ok { "\u{2713}" } else { "\u{2717}" }
 }
 
 // =====================================================================
@@ -238,11 +224,11 @@ fn cmd_config(args: &[String]) {
             println!("paired  = {}", cfg.paired_edit);
             println!("fan1:");
             for (i, pt) in cfg.fan1.points.iter().enumerate() {
-                println!("  {:>2}  {:>5.1}°C → {:>5.1}%", i, pt.temp, pt.speed);
+                println!("  {:>2}  {:>5.1}C -> {:>5.1}%", i, pt.temp, pt.speed);
             }
             println!("fan2:");
             for (i, pt) in cfg.fan2.points.iter().enumerate() {
-                println!("  {:>2}  {:>5.1}°C → {:>5.1}%", i, pt.temp, pt.speed);
+                println!("  {:>2}  {:>5.1}C -> {:>5.1}%", i, pt.temp, pt.speed);
             }
         }
     }
@@ -261,7 +247,43 @@ fn cmd_daemon(args: &[String]) {
     }
 }
 
+fn has_systemd() -> bool {
+    Command::new("systemctl")
+        .arg("--version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
 fn daemon_start() {
+    if has_systemd() {
+        daemon_start_systemd();
+    } else {
+        daemon_start_detach();
+    }
+}
+
+fn daemon_stop() {
+    if has_systemd() {
+        daemon_stop_systemd();
+    } else {
+        daemon_stop_detach();
+    }
+}
+
+fn daemon_status() {
+    if has_systemd() {
+        daemon_status_systemd();
+    } else {
+        daemon_status_detach();
+    }
+}
+
+// --- systemd path ---
+
+fn daemon_start_systemd() {
     let exe = current_exe_path();
     let svc = service_unit(&exe);
 
@@ -283,7 +305,7 @@ fn daemon_start() {
     println!("Check status: tuxfans daemon status");
 }
 
-fn daemon_stop() {
+fn daemon_stop_systemd() {
     let _ = Command::new("systemctl")
         .args(["--user", "stop", "tuxfans"])
         .status();
@@ -293,7 +315,7 @@ fn daemon_stop() {
     println!("Daemon stopped and disabled.");
 }
 
-fn daemon_status() {
+fn daemon_status_systemd() {
     let output = Command::new("systemctl")
         .args(["--user", "is-active", "tuxfans"])
         .output();
@@ -304,6 +326,104 @@ fn daemon_status() {
             println!("Daemon: {}", status);
         }
         _ => println!("Daemon: inactive"),
+    }
+}
+
+// --- detached (non-systemd) path ---
+
+fn pid_file() -> String {
+    if let Ok(dir) = std::env::var("XDG_RUNTIME_DIR") {
+        format!("{}/tuxfans.pid", dir)
+    } else {
+        let uid = unsafe { libc::getuid() };
+        format!("/tmp/tuxfans-{}.pid", uid)
+    }
+}
+
+fn daemon_start_detach() {
+    let exe = current_exe_path();
+
+    match unsafe { libc::fork() } {
+        -1 => {
+            eprintln!("fork failed: {}", std::io::Error::last_os_error());
+            std::process::exit(1);
+        }
+        0 => {
+            unsafe { libc::setsid() };
+            // daemon already running check
+            let status = Command::new(&exe)
+                .arg("daemon-run")
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+            std::process::exit(status.map_or(1, |s| s.code().unwrap_or(1)));
+        }
+        pid => {
+            let path = pid_file();
+            std::fs::write(&path, pid.to_string()).expect("Failed to write PID file");
+            println!("Daemon started (pid: {})", pid);
+            println!("Stop: tuxfans daemon stop");
+        }
+    }
+}
+
+fn daemon_stop_detach() {
+    let path = pid_file();
+    let pid_str = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(_) => {
+            println!("No PID file found. Daemon is not running.");
+            return;
+        }
+    };
+    let pid: i32 = match pid_str.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            eprintln!("Invalid PID file.");
+            return;
+        }
+    };
+
+    unsafe {
+        if libc::kill(pid, libc::SIGTERM) == 0 {
+            println!("Daemon stopped (pid: {}).", pid);
+        } else {
+            let err = std::io::Error::last_os_error();
+            if err.raw_os_error() == Some(libc::ESRCH) {
+                println!("Daemon (pid: {}) is not running.", pid);
+            } else {
+                eprintln!("Failed to stop daemon: {}", err);
+            }
+        }
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+fn daemon_status_detach() {
+    let path = pid_file();
+    let pid_str = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(_) => {
+            println!("Daemon: inactive");
+            return;
+        }
+    };
+    let pid: i32 = match pid_str.trim().parse() {
+        Ok(p) => p,
+        Err(_) => {
+            println!("Daemon: inactive");
+            return;
+        }
+    };
+
+    unsafe {
+        if libc::kill(pid, 0) == 0 {
+            println!("Daemon: active (pid: {})", pid);
+        } else {
+            println!("Daemon: inactive (stale pid: {})", pid);
+            let _ = std::fs::remove_file(&path);
+        }
     }
 }
 
@@ -362,7 +482,7 @@ fn cmd_test(args: &[String]) {
         }
     };
 
-    println!("tuxfans fan test — {}% both fans, {} seconds", speed, secs);
+    println!("tuxfans fan test - {}% both fans, {} seconds", speed, secs);
 
     io.set_fan1_speed(speed).ok();
     io.set_fan2_speed(speed).ok();
@@ -386,7 +506,7 @@ fn cmd_test(args: &[String]) {
 // =====================================================================
 
 fn print_usage() {
-    println!("tuxfans — fan curve controller for TUXEDO laptops\n");
+    println!("tuxfans - fan curve controller for TUXEDO laptops\n");
     println!("USAGE:");
     println!("  tuxfans                        Usage and setup check");
     println!("  tuxfans onboard                Fix device permissions");
@@ -402,7 +522,7 @@ fn print_usage() {
 // =====================================================================
 
 fn fmt_temp(v: Option<f64>) -> String {
-    v.map(|t| format!("{:.0}°C", t))
+    v.map(|t| format!("{:.0}C", t))
         .unwrap_or_else(|| "--".to_string())
 }
 
