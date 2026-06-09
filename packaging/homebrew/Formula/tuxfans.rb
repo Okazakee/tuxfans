@@ -4,7 +4,7 @@ class Tuxfans < Formula
   license "MIT"
 
   url "https://github.com/Okazakee/tuxfans/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "1ade4f56e58544cdb94a1b111db4a15c78f3d6e780ccab94ba6dbe353b53eb9c"
+  sha256 "cbc7a5bafc59175abad3047a907be9f55642a0b119522cd93e5362627e4e565b"
 
   depends_on "rust" => :build
 
