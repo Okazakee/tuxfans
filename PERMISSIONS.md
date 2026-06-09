@@ -5,6 +5,12 @@
 
 ## Automatic setup
 
+Every `tuxfans` command that needs device access automatically checks
+permissions and offers to install the udev rule via `pkexec` if they're wrong.
+No separate setup step required.
+
+You can also run it manually:
+
 ```bash
 tuxfans onboard
 ```

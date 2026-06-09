@@ -13,13 +13,10 @@ cd tuxfans
 cargo build --release
 sudo cp target/release/tuxfans /usr/local/bin/
 
-# One-time setup — fixes /dev/tuxedo_io permissions
-tuxfans onboard
-
-# Check status
+# First run auto-fixes device permissions if needed
 tuxfans status
 
-# Apply a built-in EC profile
+# Apply a built-in EC profile (auto-fixes permissions on every invocation)
 tuxfans profile quiet
 
 # Switch to custom curve

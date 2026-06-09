@@ -162,7 +162,8 @@ Available for future work:
 
 1. **EC profile mode**
    - Select `quiet`, `performance`, or `overboost`.
-   - Call `W_UW_FANAUTO` to return fan control to firmware.
+   - Call `W_UW_MODE_ENABLE` (0) to disable manual control, then
+     `W_UW_FANAUTO` to return fan control to firmware.
    - Call `W_UW_PERF_PROF` with the selected profile value.
 
 2. **Custom mode**
