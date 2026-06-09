@@ -74,7 +74,7 @@ jobs:
           git config user.email "actions@github.com"
           git add packaging/homebrew/Formula/tuxfans.rb
           git diff --staged --quiet || git commit -m "Update Homebrew formula for ${{ github.ref_name }}"
-          git push
+          git push origin HEAD:main
 
   aur:
     needs: test
