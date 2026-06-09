@@ -102,6 +102,7 @@ jobs:
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
             User aur
+            StrictHostKeyChecking accept-new
           CONF
       - name: Clone AUR package
         shell: bash
