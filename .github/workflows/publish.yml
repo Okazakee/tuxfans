@@ -1,0 +1,122 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
+
+  crates:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo publish --token ${{ secrets.CRATES_TOKEN }}
+
+  homebrew:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute tarball hash
+        id: hash
+        run: |
+          sha=$(curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz" | sha256sum | cut -d' ' -f1)
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+      - name: Clone homebrew tap
+        uses: actions/checkout@v4
+        with:
+          repository: Okazakee/homebrew-tuxfans
+          token: ${{ secrets.HOMEBREW_TOKEN }}
+          path: homebrew-tuxfans
+      - name: Update formula
+        run: |
+          cat > homebrew-tuxfans/Formula/tuxfans.rb << FORMULA
+          class Tuxfans < Formula
+            desc "Fan curve controller for TUXEDO laptops"
+            homepage "https://github.com/Okazakee/tuxfans"
+            license "MIT"
+
+            url "https://github.com/Okazakee/tuxfans/archive/refs/tags/${{ github.ref_name }}.tar.gz"
+            sha256 "${{ steps.hash.outputs.sha256 }}"
+
+            depends_on "rust" => :build
+
+            def install
+              system "cargo", "install", *std_cargo_args
+            end
+
+            test do
+              assert_match "tuxfans", shell_output("#{bin}/tuxfans 2>&1", 1)
+            end
+          end
+          FORMULA
+      - name: Commit and push
+        run: |
+          cd homebrew-tuxfans
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "tuxfans ${{ github.ref_name }}"
+          git push
+
+  aur:
+    needs: test
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --user root
+    steps:
+      - name: Install deps
+        run: pacman -Syu --noconfirm git base-devel openssh
+      - uses: actions/checkout@v4
+      - name: Compute tarball hash
+        id: hash
+        shell: bash
+        run: |
+          sha=$(curl -sL "https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz" | sha256sum | cut -d' ' -f1)
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+      - name: Setup SSH for AUR
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config << 'CONF'
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+          CONF
+      - name: Clone AUR package
+        shell: bash
+        run: git clone ssh://aur@aur.archlinux.org/tuxfans.git aur-pkg
+      - name: Update PKGBUILD and .SRCINFO
+        shell: bash
+        run: |
+          cd aur-pkg
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^pkgver=.*/pkgver=$VERSION/" PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${{ steps.hash.outputs.sha256 }}')/" PKGBUILD
+          makepkg --printsrcinfo > .SRCINFO
+      - name: Commit and push
+        shell: bash
+        run: |
+          cd aur-pkg
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .
+          git commit -m "tuxfans ${{ github.ref_name }}"
+          git push
