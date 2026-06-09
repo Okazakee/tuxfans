@@ -14,15 +14,27 @@ fn main() {
 
     match cmd {
         "onboard" => cmd_onboard(),
-        "status" => cmd_status(),
-        "profile" => cmd_profile(&args),
+        "status" => {
+            ensure_device(false);
+            cmd_status();
+        }
+        "profile" => {
+            ensure_device(false);
+            cmd_profile(&args);
+        }
         "config" => cmd_config(&args),
         "daemon" => cmd_daemon(&args),
-        "daemon-run" => cmd_daemon_run(),
-        "test" => cmd_test(&args),
+        "daemon-run" => {
+            ensure_device(true);
+            cmd_daemon_run();
+        }
+        "test" => {
+            ensure_device(true);
+            cmd_test(&args);
+        }
         _ => {
             print_usage();
-            check_setup();
+            ensure_device(false);
         }
     }
 }
@@ -92,12 +104,40 @@ fn cmd_onboard() {
 // health check
 // =====================================================================
 
-fn check_setup() {
-    let has_dev = std::path::Path::new("/dev/tuxedo_io").exists();
-    let has_access = TuxedoIO::open().is_ok();
+fn ensure_device(exit_on_fail: bool) {
+    if !std::path::Path::new("/dev/tuxedo_io").exists() {
+        eprintln!("Device not found: /dev/tuxedo_io\n→ Install tuxedo-drivers-dkms and reboot.");
+        if exit_on_fail {
+            std::process::exit(1);
+        }
+        return;
+    }
 
-    if !has_dev || !has_access {
-        eprintln!("Device not accessible. Run `tuxfans onboard` to fix permissions.");
+    if TuxedoIO::open().is_ok() {
+        return;
+    }
+
+    eprintln!("Device permission denied. Installing udev rule...");
+
+    let rule = "SUBSYSTEM==\"tuxedo_io\", KERNEL==\"tuxedo_io\", MODE=\"0660\", GROUP=\"plugdev\"";
+    let result = Command::new("pkexec")
+        .args([
+            "sh",
+            "-c",
+            &format!(
+                "echo '{}' > {} && udevadm control --reload-rules && udevadm trigger",
+                rule, UDEV_RULE_DST
+            ),
+        ])
+        .status();
+
+    match result {
+        Ok(s) if s.success() => eprintln!("→ udev rule installed. Try again."),
+        _ => eprintln!("→ Failed. Run manually: sudo chmod 666 /dev/tuxedo_io"),
+    }
+
+    if exit_on_fail {
+        std::process::exit(1);
     }
 }
 
