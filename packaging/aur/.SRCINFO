@@ -5,7 +5,7 @@ pkgbase = tuxfans
 	url = https://github.com/Okazakee/tuxfans
 	arch = x86_64
 	license = MIT
-	makedepends = cargo
+	makedepends = rust
 	source = tuxfans-0.1.0.tar.gz::https://github.com/Okazakee/tuxfans/archive/v0.1.0.tar.gz
 	sha256sums = UNCOMMITTED
 

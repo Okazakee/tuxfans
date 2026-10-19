@@ -124,7 +124,7 @@ jobs:
             "	url = https://github.com/Okazakee/tuxfans" \
             "	arch = x86_64" \
             "	license = MIT" \
-            "	makedepends = cargo" \
+            "	makedepends = rust" \
             "	source = tuxfans-$VERSION.tar.gz::https://github.com/Okazakee/tuxfans/archive/v$VERSION.tar.gz" \
             "	sha256sums = ('$SHA256')" \
             "" \
